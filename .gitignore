@@ -1,0 +1,7 @@
+.idea
+Lib
+Scripts
+include
+share
+__pycache__
+venv
