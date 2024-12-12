@@ -10,6 +10,7 @@ from functools import wraps
 from backend.model import User, SessionLocal
 from datetime import datetime, timedelta
 from fastapi.middleware.cors import CORSMiddleware
+from datetime import date, time
 
 from fastapi.security import OAuth2PasswordRequestForm
 
@@ -63,6 +64,19 @@ class UserProfile(BaseModel):
     phone_number: str
     education: str
 
+
+class EventResponse(BaseModel):
+    id: int
+    title: str
+    description: str
+    date: date
+    time: time
+    person_in_charge: str
+    address: str
+    image_path: str
+
+    class Config:
+        orm_mode = True
 
 class EventCreate(BaseModel):
     title: str
@@ -398,3 +412,13 @@ def create_access_token(data: dict, expires_delta: timedelta = timedelta(hours=2
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+
+
+@app.get("/events", response_model=list[EventResponse])
+def get_all_events(db: Session = Depends(get_db)):
+    """
+    Fetch all events.
+    """
+    events = db.query(Event).all()
+    return events
