@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends,Request
 from pydantic import BaseModel, EmailStr
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
@@ -7,12 +7,18 @@ from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
 from typing import Callable
 from functools import wraps
+import qrcode
+
 from backend.model import User, SessionLocal
 from datetime import datetime, timedelta
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import date, time
-
+from model import Admin,Event,User,UserEvent
 from fastapi.security import OAuth2PasswordRequestForm
+from itsdangerous import URLSafeTimedSerializer
+from typing import List
+from fastapi.encoders import jsonable_encoder
+from fastapi.concurrency import run_in_threadpool
 
 
 
@@ -77,25 +83,28 @@ class EventResponse(BaseModel):
 
     class Config:
         orm_mode = True
+        from_attributes = True
 
 class EventCreate(BaseModel):
     title: str
     description: str
-    date: str  # ISO format (YYYY-MM-DD)
-    time: str  # ISO format (HH:MM:SS)
+    date: date  # ISO format (YYYY-MM-DD)
+    time: time  # ISO format (HH:MM:SS)
     person_in_charge: str
     address: str
+    class Config:
+        from_attributes = True  # Enable ORM mode
+class AdminLogin(BaseModel):
+    name: str
+    password: str
+
 
 class AdminCreate(BaseModel):
     name: str
     email: str
     password: str
 
-class EventResponse(EventCreate):
-    id: int
 
-    class Config:
-        orm_mode = True
 
 
 # Path where QR codes will be stored
@@ -107,50 +116,95 @@ QR_CODE_PATH.mkdir(parents=True, exist_ok=True)
 EVENT_IMAGES_PATH = Path("static/event_images/")
 EVENT_IMAGES_PATH.mkdir(parents=True, exist_ok=True)
 
+SECRET_KEY = "your_secret_key"  # Replace with your actual secret key
+SIGNING_SALT = "your_signing_salt"  # Add a salt for extra security
 
-def admin_required(func: Callable):
+serializer = URLSafeTimedSerializer(SECRET_KEY)
+
+
+def create_access_token(data: dict, expires_delta: timedelta = timedelta(hours=24)):
+    # Add expiration time to the payload
+    expire = (datetime.utcnow() + expires_delta).timestamp()
+    data.update({"exp": expire})
+
+    # Create the token
+    token = serializer.dumps(data, salt=SIGNING_SALT)
+    return token
+
+
+def verify_access_token(token: str):
+    try:
+        data = serializer.loads(token, salt=SIGNING_SALT, max_age=86400)  # max_age is in seconds
+        return data
+    except Exception as e:
+        raise ValueError(f"Invalid or expired token: {str(e)}")
+
+
+
+def hash_password(password: str):
+    return pwd_context.hash(password)
+
+def verify_password(plain_password: str, hashed_password: str):
+    return pwd_context.verify(plain_password, hashed_password)
+
+def admin_required(func):
     @wraps(func)
-    async def wrapper(*args, **kwargs):
-        # Get the request and db session
-        request: Request = kwargs.get("request")
-        db: Session = kwargs.get("db")
-
-        # Extract the token from the Authorization header
+    async def wrapper(request: Request, db: Session = Depends(get_db)):
         token = request.headers.get("Authorization")
-        if not token:
-            raise HTTPException(status_code=403, detail="Authorization token is missing")
+        if not token or not token.startswith("Bearer "):
+            raise HTTPException(status_code=403, detail="Authorization token is missing or invalid")
 
-        token = token.split(" ")[1]  # Strip "Bearer " part
+        token = token.split(" ")[1]  # Extract the token part
 
-        # Verify and decode the token
         try:
-            payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+            # Assuming verify_access_token is already defined elsewhere
+            payload = verify_access_token(token)
             admin_id = payload.get("sub")
-            if admin_id is None:
-                raise HTTPException(status_code=403, detail="Could not validate credentials")
+            if not admin_id:
+                raise HTTPException(status_code=403, detail="Invalid token: admin_id not found")
 
-            # Retrieve the admin from the database
-            admin = db.query(Admin).filter(Admin.id == admin_id).first()
-            if admin is None:
+            admin = db.query(Admin).filter(Admin.id == int(admin_id)).first()
+            if not admin:
                 raise HTTPException(status_code=404, detail="Admin not found")
-        except JWTError:
+        except ValueError:
             raise HTTPException(status_code=403, detail="Could not validate credentials")
 
-        # Call the original function
-        return await func(*args, **kwargs)
+        # Set the admin in the request state
+        request.state.admin = admin
+
+        # Call the actual endpoint function with the correct arguments
+        response = await func(request, db)
+
+        # Ensure the response is valid (if expected to be a list, check here)
+        if response is None:
+            raise HTTPException(status_code=500, detail="Response was None")
+
+        return response
 
     return wrapper
 
+
+
+
 def generate_qr_code(user_id: int, event_id: int) -> str:
     data = f"user:{user_id}-event:{event_id}"  # Unique data for user and event
+    print(f"Generating QR code with data: {data}")  # Debugging line to check data
+
+    # Generate the QR code
     qr = qrcode.make(data)
 
     # Save the QR code image to the specified path
     qr_code_filename = f"{user_id}_{event_id}.png"
     qr_code_path = QR_CODE_PATH / qr_code_filename
+    print(f"Saving QR code to: {qr_code_path}")  # Debugging line to check the path
+
     qr.save(qr_code_path)
 
+    # Return the path of the saved QR code
     return str(qr_code_path)
+
+
+
 # Utility functions
 def get_user_by_email(db: Session, email: str):
     return db.query(User).filter(User.email == email).first()
@@ -207,68 +261,206 @@ def profile(user_id: int, db: Session = Depends(get_db)):
 
 
 def save_event_image(image: UploadFile) -> str:
-    # Generate a unique filename for the image
-    image_filename = f"{Path(image.filename).stem}_{int(time.time())}{Path(image.filename).suffix}"
-    image_path = EVENT_IMAGES_PATH / image_filename
+    # Define the image path
+    image_path = EVENT_IMAGES_PATH / image.filename
 
-    # Save the image
+    # Save the image directly
     with open(image_path, "wb") as buffer:
-        shutil.copyfileobj(image.file, buffer)
+        buffer.write(image.file.read())
 
     return str(image_path)
 
 
+
 # Event creation API (with image upload)
-@app.post("/admin/events", response_model=EventResponse)
-@admin_required
+from fastapi import Form
+@app.post("/admin/events", response_model=List[EventResponse])
 async def create_event(
-        event: EventCreate,
-        image: UploadFile = File(...),  # Accepting the image file
-        db: Session = Depends(get_db)
+    request: Request,
+    db: Session = Depends(get_db),
+    title: str = Form(...),
+    description: str = Form(...),
+    date: str = Form(...),  # Accept date as a string
+    time: str = Form(...),  # Accept time as a string
+    person_in_charge: str = Form(...),
+    address: str = Form(...),
+    image: UploadFile = File(...)
 ):
-    # Save the image
-    image_path = save_event_image(image)
+    # Manually check if the admin is logged in
+    token = request.headers.get("Authorization")
+    if not token or not token.startswith("Bearer "):
+        raise HTTPException(status_code=403, detail="Authorization token is missing or invalid")
 
-    # Create the event
-    db_event = Event(
-        title=event.title,
-        description=event.description,
-        date=event.date,
-        time=event.time,
-        person_in_charge=event.person_in_charge,
-        address=event.address,
-        image_path=image_path  # Store the image path in the event record
-    )
+    token = token.split(" ")[1]  # Extract the token part
 
-    # Add to the database
-    db.add(db_event)
-    db.commit()
-    db.refresh(db_event)
+    try:
+        # Assuming verify_access_token is already defined elsewhere
+        payload = verify_access_token(token)
+        admin_id = payload.get("sub")
+        if not admin_id:
+            raise HTTPException(status_code=403, detail="Invalid token: admin_id not found")
 
-    return db_event
+        admin = db.query(Admin).filter(Admin.id == int(admin_id)).first()
+        if not admin:
+            raise HTTPException(status_code=404, detail="Admin not found")
 
-@app.get("/admin/events", response_model=list[EventResponse])
-@admin_required
-def list_events(db: Session = Depends(get_db)):
-    events = db.query(Event).all()
-    return events
+        # If admin is authenticated, proceed with the event creation logic
+        # Save the image
+        image_path = save_event_image(image)
+
+        # Create the event
+        db_event = Event(
+            title=title,
+            description=description,
+            date=date,
+            time=time,
+            person_in_charge=person_in_charge,
+            address=address,
+            image_path=image_path
+        )
+
+        # Add to the database
+        db.add(db_event)
+        db.commit()
+        db.refresh(db_event)
+
+        # Return a list with the created event
+        return [EventResponse.from_orm(db_event)]
+
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Could not validate credentials")
+
+
 
 @app.get("/admin/events/{event_id}", response_model=EventResponse)
-@admin_required
-def get_event(event_id: int, db: Session = Depends(get_db)):
-    event = db.query(Event).filter(Event.id == event_id).first()
-    if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
-    return event
+async def get_event(event_id: int, request: Request, db: Session = Depends(get_db)):
+    # Manually check if the admin is logged in
+    token = request.headers.get("Authorization")
+    if not token or not token.startswith("Bearer "):
+        raise HTTPException(status_code=403, detail="Authorization token is missing or invalid")
+
+    token = token.split(" ")[1]  # Extract the token part
+
+    try:
+        # Assuming verify_access_token is already defined elsewhere
+        payload = verify_access_token(token)
+        admin_id = payload.get("sub")
+        if not admin_id:
+            raise HTTPException(status_code=403, detail="Invalid token: admin_id not found")
+
+        admin = db.query(Admin).filter(Admin.id == int(admin_id)).first()
+        if not admin:
+            raise HTTPException(status_code=404, detail="Admin not found")
+
+        # If admin is authenticated, proceed with the logic
+        event = db.query(Event).filter(Event.id == event_id).first()
+
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+
+        return event
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Could not validate credentials")
+
+
 
 @app.delete("/admin/events/{event_id}")
-def delete_event(event_id: int, db: Session = Depends(get_db)):
-    event = db.query(Event).filter(Event.id == event_id).first()
-    if not event:
-        raise HTTPException(status_code=404, detail="Event not found")
-    db.delete(event)
-    db.commit()
-    return {"message": "Event deleted successfully"}
+async def delete_event(event_id: int, request: Request, db: Session = Depends(get_db)):
+    # Manually check if the admin is logged in
+    token = request.headers.get("Authorization")
+    if not token or not token.startswith("Bearer "):
+        raise HTTPException(status_code=403, detail="Authorization token is missing or invalid")
+
+    token = token.split(" ")[1]  # Extract the token part
+
+    try:
+        # Assuming verify_access_token is already defined elsewhere
+        payload = verify_access_token(token)
+        admin_id = payload.get("sub")
+        if not admin_id:
+            raise HTTPException(status_code=403, detail="Invalid token: admin_id not found")
+
+        admin = db.query(Admin).filter(Admin.id == int(admin_id)).first()
+        if not admin:
+            raise HTTPException(status_code=404, detail="Admin not found")
+
+        # If admin is authenticated, proceed with the event deletion logic
+        event = db.query(Event).filter(Event.id == event_id).first()
+
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+
+        db.delete(event)
+        db.commit()
+
+        # Verify if the event was deleted
+        event_check = db.query(Event).filter(Event.id == event_id).first()
+        if event_check:
+            raise HTTPException(status_code=500, detail="Failed to delete the event")
+
+        return {"message": "Event deleted successfully"}
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Could not validate credentials")
+
+
+@app.put("/admin/events/{event_id}", response_model=EventResponse)
+async def edit_event(
+    event_id: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    title: str = Form(...),
+    description: str = Form(...),
+    date: str = Form(...),  # Accept date as a string
+    time: str = Form(...),  # Accept time as a string
+    person_in_charge: str = Form(...),
+    address: str = Form(...),
+    image: UploadFile = File(None)  # Image is optional for editing
+):
+    # Manually check if the admin is logged in
+    token = request.headers.get("Authorization")
+    if not token or not token.startswith("Bearer "):
+        raise HTTPException(status_code=403, detail="Authorization token is missing or invalid")
+
+    token = token.split(" ")[1]  # Extract the token part
+
+    try:
+        # Assuming verify_access_token is already defined elsewhere
+        payload = verify_access_token(token)
+        admin_id = payload.get("sub")
+        if not admin_id:
+            raise HTTPException(status_code=403, detail="Invalid token: admin_id not found")
+
+        admin = db.query(Admin).filter(Admin.id == int(admin_id)).first()
+        if not admin:
+            raise HTTPException(status_code=404, detail="Admin not found")
+
+        # If admin is authenticated, proceed with event editing logic
+        event = db.query(Event).filter(Event.id == event_id).first()
+        if not event:
+            raise HTTPException(status_code=404, detail="Event not found")
+
+        # Update event fields
+        event.title = title
+        event.description = description
+        event.date = date
+        event.time = time
+        event.person_in_charge = person_in_charge
+        event.address = address
+
+        # If a new image is uploaded, save it
+        if image:
+            image_path = save_event_image(image)
+            event.image_path = image_path
+
+        # Commit the changes to the database
+        db.commit()
+        db.refresh(event)
+
+        # Return the updated event
+        return EventResponse.from_orm(event)
+
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Could not validate credentials")
 
 
 @app.post("/event/register", response_model=UserProfile)
@@ -324,7 +516,7 @@ def scan_qr(qr_code_data: str, db: Session = Depends(get_db)):
 
 @app.get("/admin/events/{event_id}/users", response_model=list[UserProfile])
 @admin_required
-def get_registered_users(event_id: int, db: Session = Depends(get_db)):
+def get_registered_users(event_id: int ,request: Request, db: Session = Depends(get_db)):
     # Query to get the users registered for the event
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
@@ -394,10 +586,15 @@ def admin_register(admin: AdminCreate, db: Session = Depends(get_db)):
     return {"message": "Admin successfully registered"}
 
 
+class AdminLoginRequest(BaseModel):
+    email: str
+    password: str
+
 @app.post("/admin/login")
-def admin_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    admin = db.query(Admin).filter(Admin.email == form_data.username).first()
-    if not admin or not verify_password(form_data.password, admin.hashed_password):
+def admin_login(request: AdminLoginRequest, db: Session = Depends(get_db)):
+    # Query admin by email
+    admin = db.query(Admin).filter(Admin.email == request.email).first()
+    if not admin or not verify_password(request.password, admin.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     # Generate JWT token for the admin
@@ -406,19 +603,101 @@ def admin_login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
 
     return {"access_token": access_token, "token_type": "bearer"}
 
-def create_access_token(data: dict, expires_delta: timedelta = timedelta(hours=24)):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + expires_delta
-    to_encode.update({"exp": expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
 
 
 
-@app.get("/events", response_model=list[EventResponse])
-def get_all_events(db: Session = Depends(get_db)):
+
+@app.get("/events", response_model=List[EventResponse])
+@admin_required
+async def get_all_events(request: Request, db: Session = Depends(get_db)):
     """
-    Fetch all events.
+    Fetch all events. Only accessible by admins.
     """
+    admin = request.state.admin
     events = db.query(Event).all()
     return events
+
+
+
+
+
+
+
+# Pydantic model for the response
+class EventRegistrationResponse(BaseModel):
+    user_id: int
+    event_id: int
+    message: str
+
+    class Config:
+        orm_mode = True
+
+
+# UserProfile Model
+class UserProfile(BaseModel):
+    name: str
+    last_name: str
+    email: EmailStr
+    job: str
+    city: str
+    phone_number: str
+    education: str
+
+
+# API to register a user to an event
+@app.post("/register_event/{event_id}", response_model=EventRegistrationResponse)
+async def register_for_event(
+        event_id: int,
+        user_profile: UserProfile,  # Now accepting user profile data
+        db: Session = Depends(get_db)
+):
+    # Check if the event exists
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    # Check if the user already exists with the provided email (to avoid duplicate registrations)
+    existing_user = db.query(User).filter(User.email == user_profile.email).first()
+
+    if not existing_user:
+        # If the user does not exist, create a new user
+        new_user = User(
+            name=user_profile.name,
+            last_name=user_profile.last_name,
+            email=user_profile.email,
+            job=user_profile.job,
+            city=user_profile.city,
+            phone_number=user_profile.phone_number,
+            education=user_profile.education
+        )
+        db.add(new_user)
+        db.commit()
+        db.refresh(new_user)
+        user_id = new_user.id
+    else:
+        user_id = existing_user.id
+
+    # Check if the user is already registered for the event
+    existing_registration = db.query(UserEvent).filter(
+        UserEvent.user_id == user_id,
+        UserEvent.event_id == event_id
+    ).first()
+
+    if existing_registration:
+        raise HTTPException(status_code=400, detail="User is already registered for this event")
+
+    # Register the user for the event
+    user_event = UserEvent(user_id=user_id, event_id=event_id)
+    db.add(user_event)
+    db.commit()
+
+    # Generate QR code for the user
+    qr_code_path = generate_qr_code(user_id, event_id)
+
+    # Return a successful response with the QR code path
+    return EventRegistrationResponse(
+        user_id=user_id,
+        event_id=event_id,
+        message="User successfully registered for the event",
+        qr_code_path=qr_code_path  # Include the QR code path in the response
+    )
