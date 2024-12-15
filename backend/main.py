@@ -254,20 +254,7 @@ def verify_password(plain_password, hashed_password):
 # Routes
 
 
-@app.get("/profile/{user_id}", response_model=UserProfile)
-def profile(user_id: int, db: Session = Depends(get_db)):
-    db_user = db.query(User).filter(User.id == user_id).first()
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return UserProfile(
-        name=db_user.name,
-        last_name=db_user.last_name,
-        email=db_user.email,
-        job=db_user.job,
-        city=db_user.city,
-        phone_number=db_user.phone_number,
-        education=db_user.education
-    )
+
 
 
 def save_event_image(image: UploadFile) -> str:
@@ -543,7 +530,7 @@ async def register_for_event(
 
 
 
-@app.post("/register", response_model=dict)
+@app.post("/api/register", response_model=dict)
 def register(user: UserRegister, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.email == user.email).first()
     if existing_user:
@@ -569,7 +556,7 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
 
 
 
-@app.post("/login", response_model=Token)
+@app.post("/api/login", response_model=Token)
 def login(user: UserLogin, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.email == user.email).first()
     if not db_user or not verify_password(user.password, db_user.password):
@@ -595,7 +582,7 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
 
 
 
-@app.get("/profile", response_model=UserProfile)
+@app.get("/api/profile", response_model=UserProfile)
 def view_profile(current_user: User = Depends(get_current_user)):
     return UserProfile(
         name=current_user.name,
@@ -610,7 +597,7 @@ def view_profile(current_user: User = Depends(get_current_user)):
 
 
 
-@app.put("/profile", response_model=UserProfile)
+@app.put("/api/profile", response_model=UserProfile)
 def edit_profile(updated_data: UserProfile, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     current_user.name = updated_data.name
     current_user.last_name = updated_data.last_name
