@@ -4,7 +4,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
-DATABASE_URL = "postgresql://postgres:n1m010@localhost:5432/hiTech"
+# DATABASE_URL = "postgresql://postgres:n1m010@localhost:5432/hiTech"
+DATABASE_URL = "postgresql://alborz:n1m010@localhost:5432/hi_tech"
 
 Base = declarative_base()
 
