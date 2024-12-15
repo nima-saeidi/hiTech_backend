@@ -9,7 +9,7 @@ from alembic import context
 # access to the values within the .ini file in use.
 config = context.config
 from model import Base
-target_metadata = Base.metadata
+target_metadata=Base.metadata
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
