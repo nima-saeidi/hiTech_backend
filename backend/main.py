@@ -9,7 +9,7 @@ from typing import Callable
 from functools import wraps
 import qrcode
 from sqlalchemy import desc
-from backend.model import User, SessionLocal
+from model import User, SessionLocal
 from datetime import datetime, timedelta
 from fastapi.middleware.cors import CORSMiddleware
 from datetime import date, time
