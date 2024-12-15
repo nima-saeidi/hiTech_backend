@@ -8,6 +8,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Depends
 from typing import Callable
 from functools import wraps
 import qrcode
+from sqlalchemy import desc
 from backend.model import User, SessionLocal
 from datetime import datetime, timedelta
 from fastapi.middleware.cors import CORSMiddleware
@@ -524,7 +525,25 @@ async def register_for_event(
     )
 
 
+@app.get("/latest-event", response_model=dict)
+def get_latest_event(db: Session = Depends(get_db)):
+    """
+    Retrieve the event with the largest ID.
+    """
+    latest_event = db.query(Event).order_by(desc(Event.id)).first()
+    if not latest_event:
+        raise HTTPException(status_code=404, detail="No events found.")
 
+    return {
+        "id": latest_event.id,
+        "title": latest_event.title,
+        "description": latest_event.description,
+        "date": latest_event.date,
+        "time": latest_event.time,
+        "person_in_charge": latest_event.person_in_charge,
+        "address": latest_event.address,
+        "image_path": latest_event.image_path,
+    }
 
 
 
