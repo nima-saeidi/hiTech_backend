@@ -22,9 +22,6 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi import Form
 from fastapi.security import OAuth2PasswordBearer
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
-
-
 
 
 app = FastAPI()
@@ -37,6 +34,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+@app.get("/")
+def read_root():
+    return {"message": "Hello, World!"}
+
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -525,7 +529,7 @@ async def register_for_event(
     )
 
 
-@app.get("/latest-event", response_model=dict)
+@app.get("/api/latest-event", response_model=dict)
 def get_latest_event(db: Session = Depends(get_db)):
     """
     Retrieve the event with the largest ID.
