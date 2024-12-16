@@ -3,105 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Dashboard</title>
+    <title>Admin Event Selection</title>
     <style>
-        /* General styles */
         body {
             font-family: Arial, sans-serif;
-            background-color: #f7fafc;
+            background-color: #f4f7fa;
             margin: 0;
             padding: 0;
         }
-
-        /* Navigation bar */
-        nav {
-            background-color: #2d3748; /* Dark gray background */
-            padding: 1rem;
-        }
-
-        nav ul {
-            display: flex;
-            gap: 1.5rem;
-            list-style: none;
-            margin: 0;
-            padding: 0;
-        }
-
-        nav a {
-            color: white;
-            text-decoration: none;
-            font-size: 1rem;
-            transition: color 0.3s ease;
-        }
-
-        nav a:hover {
-            color: #6366f1; /* Indigo hover color */
-        }
-
-        /* Horizontal rule */
-        hr {
-            border: 1px solid #e2e8f0; /* Light gray border */
-            margin-top: 1rem;
-        }
-
-        /* Content Container */
         .container {
-            padding: 2rem;
+            padding: 20px;
             background-color: white;
-            margin-top: 20px;
+            margin: 30px auto;
             border-radius: 8px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            width: 80%;
         }
-
-        .container h1 {
-            font-size: 2rem;
-            margin-bottom: 1.5rem;
+        h2 {
+            text-align: center;
+            margin-bottom: 20px;
         }
-
-        .menu {
-            margin-top: 2rem;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .menu a {
-            background-color: #4a5568; /* Darker gray for buttons */
-            color: white;
-            padding: 10px 20px;
-            text-decoration: none;
+        .event {
+            background-color: #f0f4f8;
+            margin: 15px 0;
+            padding: 15px;
             border-radius: 5px;
-            font-size: 1.1rem;
-            transition: background-color 0.3s ease;
         }
-
-        .menu a:hover {
-            background-color: #2b4b6b; /* Lighter gray for hover */
+        .event-header {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        .user-list {
+            margin-top: 10px;
+        }
+        .user-list ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        .user-list li {
+            padding: 5px 0;
+            border-bottom: 1px solid #ddd;
         }
     </style>
 </head>
 <body>
 
-    <!-- Navigation Bar -->
-    <nav>
-        <ul>
-            <li><a href="/admin/dashboard">Dashboard</a></li>
-            <li><a href="/admin/events">Events</a></li>
-            <li><a href="/admin/events">Admin Events</a></li>
-            <li><a href="/admin/event_selection">Admin Events Selection</a></li>
-            <li><a href="/admin/logout">Logout</a></li>
-        </ul>
-    </nav>
-
-    <hr>
-
-    <!-- Main Content Container -->
     <div class="container">
-        <h1>Welcome to the Admin Dashboard</h1>
-        <div class="menu">
-            <a href="/admin/events">Manage Events</a>
-            <a href="/admin/logout">Logout</a>
+        <h2>Event Registration Details</h2>
+        {% for event, users in event_user_data.items() %}
+        <div class="event">
+            <div class="event-header">{{ event.title }}</div>
+            <div class="user-list">
+                <strong>Registered Users:</strong>
+                {% if users %}
+                    <ul>
+                        {% for user in users %}
+                            <li>{{ user.name }} {{ user.last_name }} - {{ user.email }}</li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p>No users registered for this event.</p>
+                {% endif %}
+            </div>
         </div>
+        {% endfor %}
     </div>
 
 </body>

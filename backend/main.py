@@ -906,6 +906,15 @@ def get_event_selection_page(request: Request, db: Session = Depends(get_db)):
     # Get all events from the database
     events = db.query(Event).all()
 
+    # Get all users registered for each event
+    event_user_data = {}
+    for event in events:
+        # Query for users registered for this event
+        user_events = db.query(UserEvent).filter(UserEvent.event_id == event.id).all()
+        users = [user_event.user for user_event in user_events]
+        event_user_data[event] = users
+
+    # Pass the events and their associated registered users to the template
     return templates.TemplateResponse(
-        "event_selection.html", {"request": request, "events": events}
+        "event_selection.html", {"request": request, "event_user_data": event_user_data}
     )
