@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Events</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+
+    <div class="max-w-4xl mx-auto py-12 px-6 sm:px-8">
+        <!-- Events List Container -->
+        <div class="bg-white p-8 rounded-lg shadow-lg">
+            <h2 class="text-3xl font-bold text-gray-900 mb-6">Events List</h2>
+
+            <div class="events space-y-4">
+                {% if events %}
+                    <ul class="space-y-4">
+                        {% for event in events %}
+                            <li class="p-4 border border-gray-300 rounded-lg hover:bg-gray-50 transition">
+                                <a href="/admin/events/{{ event.id }}" class="text-xl font-semibold text-indigo-600 hover:text-indigo-800">{{ event.title }}</a>
+                                <p class="text-gray-600">{{ event.date }} at {{ event.time }}</p>
+                            </li>
+                        {% endfor %}
+                    </ul>
+                {% else %}
+                    <p class="text-gray-600">No events available.</p>
+                {% endif %}
+            </div>
+
+            <!-- Create New Event Link -->
+            <div class="mt-6">
+                <a href="/admin/events/create" class="inline-block text-lg font-semibold text-indigo-600 hover:text-indigo-800 transition duration-300">Create New Event</a>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

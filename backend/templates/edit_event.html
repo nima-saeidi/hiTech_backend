@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Event</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+    <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+        <div class="max-w-2xl w-full space-y-8 bg-white p-8 rounded-lg shadow-lg">
+            <h1 class="text-3xl font-extrabold text-center text-gray-900">Edit Event</h1>
+            <form action="/admin/events/{{ event.id }}/edit" method="POST" enctype="multipart/form-data" class="mt-8 space-y-6">
+                <div class="space-y-4">
+                    <div class="flex flex-col">
+                        <label for="title" class="text-sm font-medium text-gray-700">Title:</label>
+                        <input type="text" id="title" name="title" value="{{ event.title }}" required class="mt-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full">
+                    </div>
+
+                    <div class="flex flex-col">
+                        <label for="description" class="text-sm font-medium text-gray-700">Description:</label>
+                        <textarea id="description" name="description" required class="mt-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full" rows="4">{{ event.description }}</textarea>
+                    </div>
+
+<div class="flex flex-col">
+    <label for="jalali_deadline" class="text-sm font-medium text-gray-700">Registration Deadline (Jalali):</label>
+    <input type="text" id="jalali_deadline" name="jalali_deadline" required
+        class="mt-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full">
+    <input type="hidden" id="gregorian_deadline" name="registration_deadline">
+</div>
+
+
+                    <div class="flex flex-col">
+                        <label for="time" class="text-sm font-medium text-gray-700">Time:</label>
+                        <input type="time" id="time" name="time" value="{{ event.time }}" required class="mt-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full">
+                    </div>
+
+                    <div class="flex flex-col">
+                        <label for="person_in_charge" class="text-sm font-medium text-gray-700">Person in Charge:</label>
+                        <input type="text" id="person_in_charge" name="person_in_charge" value="{{ event.person_in_charge }}" required class="mt-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full">
+                    </div>
+
+                    <div class="flex flex-col">
+                        <label for="address" class="text-sm font-medium text-gray-700">Address:</label>
+                        <input type="text" id="address" name="address" value="{{ event.address }}" required class="mt-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full">
+                    </div>
+
+                    <div class="flex flex-col">
+                        <label for="image" class="text-sm font-medium text-gray-700">Event Image (Optional):</label>
+                        <input type="file" id="image" name="image" class="mt-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full">
+                    </div>
+                </div>
+                <div class="flex flex-col">
+    <label for="jalali_deadline" class="text-sm font-medium text-gray-700">Registration Deadline (Jalali):</label>
+    <input type="text" id="jalali_deadline" name="jalali_deadline" required
+        class="mt-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full">
+    <input type="hidden" id="gregorian_deadline" name="registration_deadline">
+</div>
+
+                <!-- Event Capacity -->
+                <div class="flex flex-col">
+                    <label for="capacity" class="text-sm font-medium text-gray-700">Event Capacity:</label>
+                    <input type="number" id="capacity" name="capacity" min="1" required class="mt-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full">
+                </div>
+
+
+                <button type="submit">Update Event</button>
+            </form>
+        </div>
+    </div>
+  <script>
+        $(document).ready(function () {
+            $('#jalali_date').persianDatepicker({
+                format: 'YYYY/MM/DD',
+                initialValue: false
+            });
+        });
+         $(document).ready(function () {
+        $('#jalali_deadline').persianDatepicker({
+            format: 'YYYY/MM/DD HH:mm',
+            timePicker: {
+                enabled: true,  // Enable time selection
+                meridiem: {
+                    enabled: false // Use 24-hour format
+                }
+            },
+            initialValue: false,
+            onSelect: function (unixDate) {
+                const gregorianDeadline = new persianDate(unixDate).toLocale('en').toCalendar('gregorian').format('YYYY-MM-DD HH:mm');
+                $('#gregorian_deadline').val(gregorianDeadline); // Save converted Gregorian datetime to hidden input
+            }
+        });
+    });
+    </script>
+</body>
+</html>

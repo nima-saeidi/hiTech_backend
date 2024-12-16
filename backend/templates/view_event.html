@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ event.title }} - Event Details</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans leading-normal tracking-normal">
+    <div class="max-w-7xl mx-auto py-12 px-6 sm:px-8">
+        <!-- Event Details Section -->
+        <div class="bg-white p-8 rounded-lg shadow-lg">
+            <h2 class="text-3xl font-semibold text-gray-900 mb-4">{{ event.title }}</h2>
+            <p class="text-lg text-gray-700 mb-2"><strong>Description:</strong> {{ event.description }}</p>
+            <p class="text-lg text-gray-700 mb-2"><strong>Date:</strong> {{ event.date }} at {{ event.time }}</p>
+            <p class="text-lg text-gray-700 mb-2"><strong>Person in Charge:</strong> {{ event.person_in_charge }}</p>
+            <p class="text-lg text-gray-700 mb-6"><strong>Location:</strong> {{ event.address }}</p>
+
+            {% if event.image_path %}
+                <img src="{{ event.image_path }}" alt="Event Image" class="w-full rounded-lg shadow-md mb-6">
+            {% endif %}
+
+            <div class="flex justify-between items-center">
+                <a href="/admin/events/{{ event.id }}/edit" class="text-indigo-600 hover:text-indigo-800 font-semibold">Edit Event</a>
+                <form method="POST" action="/admin/events/{{ event.id }}" style="display:inline;">
+                    <button type="submit" onclick="return confirm('Are you sure you want to delete this event?');" class="text-red-600 hover:text-red-800 font-semibold">Delete Event</button>
+                </form>
+            </div>
+
+            <div class="mt-6">
+                <a href="/admin/events" class="text-indigo-600 hover:text-indigo-800">Back to Events</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

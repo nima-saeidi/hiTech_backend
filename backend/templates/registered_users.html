@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registered Users for {{ event_name }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+
+    <div class="container mx-auto p-6">
+        <h2 class="text-3xl font-semibold text-center text-gray-800 mb-6">Registered Users for {{ event_name }}</h2>
+
+        <!-- User List -->
+        <div class="bg-white p-4 rounded-lg shadow-lg">
+            {% if users %}
+                <ul class="space-y-4">
+                    {% for user in users %}
+                        <li class="border-b pb-4 mb-4">
+                            <strong class="text-lg text-gray-900">{{ user.name }} {{ user.last_name }}</strong>
+                            <p class="text-sm text-gray-600">{{ user.email }} - {{ user.job }}</p>
+                            <p class="text-sm text-gray-500">City: {{ user.city }} | Phone: {{ user.phone_number }} | Education: {{ user.education }}</p>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="text-center text-gray-500">No users registered for this event.</p>
+            {% endif %}
+        </div>
+
+        <!-- Back to Event -->
+        <div class="mt-6 text-center">
+            <a href="/admin/events/{{ event_id }}" class="text-indigo-600 hover:text-indigo-800 font-semibold">Back to Event</a>
+        </div>
+    </div>
+</body>
+</html>

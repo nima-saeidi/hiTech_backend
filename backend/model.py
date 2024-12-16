@@ -1,11 +1,11 @@
-from sqlalchemy import Column, Integer, String, Date, Time
+from sqlalchemy import Column, Integer, String, Date, Time,DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
-# DATABASE_URL = "postgresql://postgres:n1m010@localhost:5432/hiTech"
-DATABASE_URL = "postgresql://alborz:n1m010@localhost:5432/hi_tech"
+DATABASE_URL = "postgresql://postgres:n1m010@localhost:5432/hiTech"
+# DATABASE_URL = "postgresql://alborz:n1m010@localhost:5432/hi_tech"
 
 Base = declarative_base()
 
@@ -40,7 +40,8 @@ class Event(Base):
     address = Column(String)
     image_path = Column(String, nullable=True)
     users = relationship("UserEvent", back_populates="event")
-
+    registration_deadline = Column(DateTime, nullable=True)  # New field
+    capacity = Column(Integer, nullable=True)               # New field
 
 class UserEvent(Base):
     __tablename__ = "user_events"
