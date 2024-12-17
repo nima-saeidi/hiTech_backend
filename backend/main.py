@@ -782,7 +782,7 @@ def get_registered_users_page(event_id: int, request: Request, db: Session = Dep
 
     # Return the template with the user list
     return templates.TemplateResponse(
-        "registered_users.html", {"request": request, "users": users, "event_name": event.name}
+        "registered_users.html", {"request": request, "users": users, "event_name": event.title}
     )
 
 
@@ -938,3 +938,12 @@ def get_event_selection_page(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
         "event_selection.html", {"request": request, "event_user_data": event_user_data}
     )
+
+
+@app.get("/admin/admin_event_selection", response_class=HTMLResponse)
+def event_selection_page(request: Request, db: Session = Depends(get_db)):
+    # Fetch all events from the database
+    events = db.query(Event).all()
+    return templates.TemplateResponse("admin_event_selection.html", {"request": request, "events": events})
+
+
