@@ -782,11 +782,12 @@ def get_registered_users_page(event_id: int, request: Request, db: Session = Dep
 
     # Return the template with the user list
     return templates.TemplateResponse(
-        "registered_users.html", {"request": request, "users": users, "event_name": event.title}
+        "registered_users.html", {"request": request, "users": users, "event_name": event.title,"event_id":event.id}
     )
 
+from fastapi.responses import StreamingResponse
 
-@app.get("/admin/events/{event_id}/users/export", response_class=FileResponse)
+@app.get("/admin/events/{event_id}/users/export", response_class=StreamingResponse)
 def export_registered_users(event_id: int, db: Session = Depends(get_db)):
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
@@ -835,8 +836,9 @@ def export_registered_users(event_id: int, db: Session = Depends(get_db)):
     file.seek(0)
 
     # Return the Excel file as a response
-    return FileResponse(file, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                        filename=f"registered_users_{event.name}.xlsx")
+    return StreamingResponse(file, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                             headers={"Content-Disposition": f"attachment; filename=registered_users_{event.title}.xlsx"})
+
 
 @app.get("/admin/events/{event_id}/edit", response_class=HTMLResponse)
 async def edit_event_page(event_id: int, request: Request, db: Session = Depends(get_db)):
