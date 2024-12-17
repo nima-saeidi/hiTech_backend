@@ -780,37 +780,71 @@ async def edit_event_page(event_id: int, request: Request, db: Session = Depends
     return templates.TemplateResponse("edit_event.html", {"request": request, "event": event})
 
 
+from persiantools.jdatetime import JalaliDate
+from fastapi import HTTPException
 
-@app.post("/admin/events/{event_id}/edit", response_class=HTMLResponse)
+
+# Helper function to convert Persian numbers to ASCII digits
+def persian_to_ascii(persian_str: str) -> str:
+    persian_digits = '۰۱۲۳۴۵۶۷۸۹'  # Persian digits
+    ascii_digits = '0123456789'  # ASCII digits
+    translation_table = str.maketrans(persian_digits, ascii_digits)
+    return persian_str.translate(translation_table)
+
+
+# Function to convert Jalali date to Gregorian
+def jalali_to_gregorian(jalali_date: str):
+    """
+    Converts a Jalali date (e.g., ۱۴۰۳/۰۹/۲۶) to Gregorian date in 'YYYY-MM-DD' format.
+    """
+    try:
+        # Convert Persian numbers to ASCII digits
+        jalali_date_ascii = persian_to_ascii(jalali_date)
+
+        # Ensure the Jalali date is in the format YYYY/MM/DD
+        jalali_parts = jalali_date_ascii.split('/')
+        if len(jalali_parts) != 3:
+            raise ValueError("Incorrect date format")
+
+        jalali_year, jalali_month, jalali_day = map(int, jalali_parts)
+
+        # Convert Jalali to Gregorian
+        gregorian_date = JalaliDate(jalali_year, jalali_month, jalali_day).to_gregorian()
+        return gregorian_date.strftime("%Y-%m-%d")  # Return Gregorian date in 'YYYY-MM-DD'
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Invalid Jalali date format: {jalali_date}")
+
+
+@app.post("/admin/events/{event_id}/edit")
 async def edit_event(
-    event_id: int,
-    request: Request,
-    db: Session = Depends(get_db),
-    title: str = Form(...),
-    description: str = Form(...),
-    date: str = Form(...),
-    time: str = Form(...),
-    person_in_charge: str = Form(...),
-    address: str = Form(...),
-    image: UploadFile = File(None),
-    registration_deadline: str = Form(None),
-    capacity: int = Form(None)
+        event_id: int,
+        db: Session = Depends(get_db),
+        title: str = Form(...),
+        description: str = Form(...),
+        date: str = Form(...),  # Jalali date as input
+        time: str = Form(...),
+        capacity: int = Form(None)
 ):
+    # Query the event by ID
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
+
+    # Convert Jalali date to Gregorian format
+    try:
+        gregorian_date = jalali_to_gregorian(date)
+    except HTTPException as e:
+        raise e  # Handle invalid Jalali date format
+
+    # Update event details
     event.title = title
     event.description = description
-    event.date = date
+    event.date = gregorian_date  # Save Gregorian date to database
     event.time = time
-    event.person_in_charge = person_in_charge
-    event.address = address
-    if image:
-        event.image_path = save_event_image(image)
-    if registration_deadline:
-        event.registration_deadline = datetime.strptime(registration_deadline, "%Y-%m-%d %H:%M:%S")
     if capacity:
         event.capacity = capacity
+
+    # Commit changes
     db.commit()
     db.refresh(event)
 

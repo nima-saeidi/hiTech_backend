@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Event Selection</title>
+        <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -47,8 +49,18 @@
     </style>
 </head>
 <body>
+<nav class="bg-gray-800 p-4">
+    <ul class="flex gap-6 text-white">
+        <li><a href="/admin/dashboard" class="hover:text-indigo-400 transition duration-300">Dashboard</a></li>
+        <li><a href="/admin/events" class="hover:text-indigo-400 transition duration-300">Admin Events</a></li>
+        <li><a href="/admin/event_selection" class="hover:text-indigo-400 transition duration-300">Admin Events Selection</a></li>
 
+         <li><a href="/admin/logout" class="hover:text-indigo-400 transition duration-300">Logout</a></li>
+    </ul>
+</nav>
+<hr class="border-gray-300">
     <div class="container">
+
         <h2>Event Registration Details</h2>
         {% for event, users in event_user_data.items() %}
         <div class="event">

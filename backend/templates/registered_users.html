@@ -7,9 +7,15 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
 <body class="bg-gray-50">
+    {% include "nav.html" %}
 
     <div class="container mx-auto p-6">
         <h2 class="text-3xl font-semibold text-center text-gray-800 mb-6">Registered Users for {{ event_name }}</h2>
+
+        <!-- Display the number of registered users -->
+        <div class="text-center mb-6">
+            <p class="text-xl text-gray-700">Total Registered Users: <span class="font-semibold">{{ users|length }}</span></p>
+        </div>
 
         <!-- User List -->
         <div class="bg-white p-4 rounded-lg shadow-lg">

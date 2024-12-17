@@ -9,10 +9,8 @@
 <body class="bg-gray-100 font-sans leading-normal tracking-normal">
 
     <div class="max-w-4xl mx-auto py-12 px-6 sm:px-8">
-        <!-- Events List Container -->
         <div class="bg-white p-8 rounded-lg shadow-lg">
             <h2 class="text-3xl font-bold text-gray-900 mb-6">Events List</h2>
-
             <div class="events space-y-4">
                 {% if events %}
                     <ul class="space-y-4">
@@ -28,7 +26,6 @@
                 {% endif %}
             </div>
 
-            <!-- Create New Event Link -->
             <div class="mt-6">
                 <a href="/admin/events/create" class="inline-block text-lg font-semibold text-indigo-600 hover:text-indigo-800 transition duration-300">Create New Event</a>
             </div>

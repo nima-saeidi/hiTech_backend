@@ -7,6 +7,9 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-100 font-sans leading-normal tracking-normal">
+    {% include "nav.html" %}
+
+<hr class="border-gray-300">
     <div class="max-w-4xl mx-auto py-12 px-6 sm:px-8">
         <!-- Dashboard Container -->
         <div class="bg-white p-8 rounded-lg shadow-lg">
@@ -15,7 +18,7 @@
             <div class="space-y-4">
                 <!-- Manage Events Link -->
                 <a href="/admin/events" class="block text-xl font-semibold text-indigo-600 hover:text-indigo-800 transition duration-300">Manage Events</a>
-
+<a href="/admin/event_selection" class="block text-xl font-semibold text-indigo-600 hover:text-indigo-800 transition duration-300">Admin Events Selection</a>
                 <!-- Logout Link -->
                 <a href="/admin/logout" class="block text-xl font-semibold text-red-600 hover:text-red-800 transition duration-300">Logout</a>
             </div>

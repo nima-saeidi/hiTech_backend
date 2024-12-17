@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Event</title>
     <script src="https://cdn.tailwindcss.com"></script>
+     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/css/persian-datepicker.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-date@1.1.0/dist/persian-date.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/persian-datepicker@1.2.0/dist/js/persian-datepicker.min.js"></script>
 </head>
 <body class="bg-gray-100 font-sans leading-normal tracking-normal">
     <div class="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
@@ -21,6 +25,11 @@
                         <label for="description" class="text-sm font-medium text-gray-700">Description:</label>
                         <textarea id="description" name="description" required class="mt-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full" rows="4">{{ event.description }}</textarea>
                     </div>
+                <!-- Jalali Calendar -->
+                <div class="flex flex-col">
+                    <label for="jalali_date" class="text-sm font-medium text-gray-700">Event Date:</label>
+                    <input type="text" id="jalali_date" name="date" required class="mt-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full">
+                </div>
 
 <div class="flex flex-col">
     <label for="jalali_deadline" class="text-sm font-medium text-gray-700">Registration Deadline (Jalali):</label>
@@ -47,15 +56,10 @@
 
                     <div class="flex flex-col">
                         <label for="image" class="text-sm font-medium text-gray-700">Event Image (Optional):</label>
-                        <input type="file" id="image" name="image" class="mt-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full">
+                        <input type="file" id="image" name="image" required class="mt-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full">
                     </div>
                 </div>
-                <div class="flex flex-col">
-    <label for="jalali_deadline" class="text-sm font-medium text-gray-700">Registration Deadline (Jalali):</label>
-    <input type="text" id="jalali_deadline" name="jalali_deadline" required
-        class="mt-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full">
-    <input type="hidden" id="gregorian_deadline" name="registration_deadline">
-</div>
+
 
                 <!-- Event Capacity -->
                 <div class="flex flex-col">
@@ -70,27 +74,29 @@
     </div>
   <script>
         $(document).ready(function () {
+            // Jalali Date Picker for Event Date
             $('#jalali_date').persianDatepicker({
                 format: 'YYYY/MM/DD',
                 initialValue: false
             });
-        });
-         $(document).ready(function () {
-        $('#jalali_deadline').persianDatepicker({
-            format: 'YYYY/MM/DD HH:mm',
-            timePicker: {
-                enabled: true,  // Enable time selection
-                meridiem: {
-                    enabled: false // Use 24-hour format
+
+            // Jalali Date Picker for Deadline with Time Picker
+            $('#jalali_deadline').persianDatepicker({
+                format: 'YYYY/MM/DD HH:mm',
+                timePicker: {
+                    enabled: true,
+                    meridiem: {
+                        enabled: false // Use 24-hour format
+                    }
+                },
+                initialValue: false,
+                onSelect: function (unixDate) {
+                    // Convert Jalali date to Gregorian and save to hidden input
+                    const gregorianDate = new persianDate(unixDate).toLocale('en').toCalendar('gregorian').format('YYYY-MM-DD HH:mm');
+                    $('#gregorian_deadline').val(gregorianDate);
                 }
-            },
-            initialValue: false,
-            onSelect: function (unixDate) {
-                const gregorianDeadline = new persianDate(unixDate).toLocale('en').toCalendar('gregorian').format('YYYY-MM-DD HH:mm');
-                $('#gregorian_deadline').val(gregorianDeadline); // Save converted Gregorian datetime to hidden input
-            }
+            });
         });
-    });
     </script>
 </body>
 </html>
