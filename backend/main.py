@@ -25,7 +25,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse, HTMLResponse
 from fastapi.responses import JSONResponse
 import os
-
+from convertdate import persian
+from datetime import datetime
 
 app = FastAPI()
 
@@ -406,48 +407,32 @@ async def registered_user_event_register(
         user_email: str,
         db: Session = Depends(get_db)
 ):
-    # Fetch the event
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-
-    # Validate registration deadline
     if event.registration_deadline and datetime.now() > event.registration_deadline:
         raise HTTPException(status_code=400, detail="Registration for this event has closed")
-
-    # Validate event capacity
     current_registration_count = db.query(UserEvent).filter(UserEvent.event_id == event_id).count()
     if event.capacity and current_registration_count >= event.capacity:
         raise HTTPException(status_code=400, detail="This event has reached its maximum capacity")
-
-    # Check if the user exists
     user = db.query(User).filter(User.email == user_email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-
-    # Ensure the user is registered to the site (must have a password)
     if not user.password:
         raise HTTPException(
             status_code=403,
             detail="User is not fully registered on the site. Please complete registration."
         )
-
-    # Check if the user is already registered for the event
     existing_registration = db.query(UserEvent).filter(
         UserEvent.user_id == user.id,
         UserEvent.event_id == event_id
     ).first()
     if existing_registration:
         raise HTTPException(status_code=400, detail="User is already registered for this event")
-
-    # Register the user for the event
     user_event = UserEvent(user_id=user.id, event_id=event_id)
     db.add(user_event)
     db.commit()
-
-    # Generate QR code for the user-event registration
     qr_code_path = generate_qr_code(user.id, event_id)
-
     return EventRegistrationResponse(
         user_id=user.id,
         event_id=event_id,
@@ -458,13 +443,9 @@ async def registered_user_event_register(
 
 @app.get("/api/latest-event", response_model=dict)
 def get_latest_event(db: Session = Depends(get_db)):
-    """
-    Retrieve the event with the largest ID.
-    """
     latest_event = db.query(Event).order_by(desc(Event.id)).first()
     if not latest_event:
         raise HTTPException(status_code=404, detail="No events found.")
-
     return {
         "id": latest_event.id,
         "title": latest_event.title,
@@ -485,7 +466,6 @@ def register(user: UserRegister, db: Session = Depends(get_db)):
     existing_user = db.query(User).filter(User.email == user.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered.")
-
     new_user = User(
         name=user.name,
         last_name=user.last_name,
@@ -556,11 +536,9 @@ def edit_profile(updated_data: UserProfile, current_user: User = Depends(get_cur
     current_user.phone_number = updated_data.phone_number
     current_user.home_address = updated_data.home_address
     current_user.education = updated_data.education
-
     db.add(current_user)
     db.commit()
     db.refresh(current_user)
-
     return UserProfile(
         name=current_user.name,
         last_name=current_user.last_name,
@@ -604,11 +582,9 @@ def register_attendance(
     return {"message": "Attendance registered successfully."}
 # -------------------------------------------------------------------------------------------------------------
 
-from convertdate import persian
-from datetime import datetime
+
 
 def convert_jalali_to_gregorian(jalali_date):
-    # jalali_date is in the format 'YYYY/MM/DD'
     year, month, day = map(int, jalali_date.split('/'))
     gregorian_date = persian.to_gregorian(year, month, day)
     return datetime(gregorian_date[0], gregorian_date[1], gregorian_date[2])
@@ -620,13 +596,10 @@ def verify_token_from_cookie(request: Request):
         raise HTTPException(status_code=403, detail="Authorization token is missing")
 
     try:
-        # Replace with actual token verification logic
         payload = verify_access_token(token)
         admin_id = payload.get("sub")
-
         if not admin_id:
             raise HTTPException(status_code=403, detail="Invalid token: admin_id not found")
-
         return admin_id
     except Exception as e:
         raise HTTPException(status_code=403, detail=f"Token validation failed: {str(e)}")
@@ -639,21 +612,16 @@ async def admin_login_page(
         password: str = Form(...),
         db: Session = Depends(get_db),
 ):
-    # Query the admin based on the email
     admin = db.query(Admin).filter(Admin.email == email).first()
 
     if not admin or not verify_password(password, admin.hashed_password):
-        # If credentials are invalid, return JSON with an error message
         return JSONResponse(
             status_code=401,
             content={"detail": "Invalid credentials"}
         )
 
-    # Generate the access token
     access_token_expires = timedelta(hours=1)
     access_token = create_access_token(data={"sub": str(admin.id)}, expires_delta=access_token_expires)
-
-    # Set the access token as an HTTP-only cookie
     response = RedirectResponse(url="/admin/dashboard", status_code=302)
     response.set_cookie(key="access_token", value=access_token, httponly=True)
 
@@ -691,68 +659,52 @@ def show_login_page(request: Request):
 
 @app.get("/admin/events", response_class=HTMLResponse)
 async def admin_events(request: Request, db: Session = Depends(get_db)):
-    # Get the token from cookies
     token = request.cookies.get("access_token")
-
     if not token:
         return RedirectResponse("/admin/login", status_code=302)
-
     try:
-        # Verify the token (this assumes you have a function to verify the access token)
         payload = verify_access_token(token)
         admin_id = payload.get("sub")
-
         if not admin_id:
             raise HTTPException(status_code=403, detail="Invalid token: admin_id not found")
     except Exception as e:
         raise HTTPException(status_code=403, detail=f"Token validation failed: {str(e)}")
-
-    # Query events from the database
     events = db.query(Event).all()
 
     return templates.TemplateResponse("admin_events.html", {"request": request, "events": events})
-from datetime import datetime
+
 @app.post("/admin/events", response_class=HTMLResponse)
 async def create_event(
     request: Request,
     db: Session = Depends(get_db),
     title: str = Form(...),
     description: str = Form(...),
-    date: str = Form(...),  # Jalali date in 'YYYY/MM/DD' format
+    date: str = Form(...),
     time: str = Form(...),
     person_in_charge: str = Form(...),
     address: str = Form(...),
     image: UploadFile = File(...),
-    registration_deadline: str = Form(None),  # Optional
-    capacity: int = Form(None)               # Optional
+    registration_deadline: str = Form(None),
+    capacity: int = Form(None)
 ):
-    # Verify the admin's token from cookies
     admin_id = verify_token_from_cookie(request)
-
-    # Save the uploaded image
     image_path = save_event_image(image)
 
-    # Convert the Jalali date to Gregorian before saving
     try:
-        # Ensure the date is in Jalali format 'YYYY/MM/DD'
         date_in_gregorian = convert_jalali_to_gregorian(date)
     except Exception as e:
         raise HTTPException(status_code=400, detail="Invalid Jalali date format. Use 'YYYY/MM/DD'.")
 
-    # Parse registration_deadline with ISO 8601 support
     deadline = None
     if registration_deadline:
         try:
-            # Handle ISO 8601 format like "2024-12-12T10:56"
             deadline = datetime.fromisoformat(registration_deadline)
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid registration_deadline format. Use ISO 8601.")
-
-    # Create and save the event in the database
     db_event = Event(
         title=title,
         description=description,
-        date=date_in_gregorian,  # Save the Gregorian date
+        date=date_in_gregorian,
         time=time,
         person_in_charge=person_in_charge,
         address=address,
@@ -763,28 +715,22 @@ async def create_event(
     db.add(db_event)
     db.commit()
     db.refresh(db_event)
-
     return RedirectResponse("/admin/events", status_code=302)
 
 
 
 @app.get("/admin/events/{event_id}", response_class=HTMLResponse)
 async def view_event(event_id: int, request: Request, db: Session = Depends(get_db)):
-    # Verify the token from the cookie
     admin_id = verify_token_from_cookie(request)
-
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-
     return templates.TemplateResponse("view_event.html", {"request": request, "event": event})
 
 
 @app.post("/admin/events/{event_id}", response_class=HTMLResponse)
 async def delete_event(event_id: int, request: Request, db: Session = Depends(get_db)):
-    # Verify the token from the cookie
     admin_id = verify_token_from_cookie(request)
-
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -793,19 +739,17 @@ async def delete_event(event_id: int, request: Request, db: Session = Depends(ge
     db.commit()
 
     return RedirectResponse("/admin/events", status_code=302)
+
+
 @app.get("/admin/events", response_class=HTMLResponse)
 def list_events(request: Request, db: Session = Depends(get_db)):
-    # Fetch events from the database
     events = db.query(Event).all()
     return templates.TemplateResponse("events.html", {"request": request, "events": events})
 
 
 @app.get("/admin/events/{event_id}/users", response_class=HTMLResponse)
 def get_registered_users_page(event_id: int, request: Request, db: Session = Depends(get_db)):
-    # Verify the token and get the admin's ID from the cookie
     admin_id = verify_token_from_cookie(request)
-
-    # Fetch event and users
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         return templates.TemplateResponse("events.html", {"request": request, "error": "Event not found"})
@@ -824,20 +768,15 @@ def get_registered_users_page(event_id: int, request: Request, db: Session = Dep
                 "phone_number": user.phone_number,
                 "education": user.education,
             })
-
-    # Return the page with users and event name
     return templates.TemplateResponse(
         "registered_users.html", {"request": request, "users": users, "event_name": event.name}
     )
 
 @app.get("/admin/events/{event_id}/edit", response_class=HTMLResponse)
 async def edit_event_page(event_id: int, request: Request, db: Session = Depends(get_db)):
-    # Get the event from the database
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-
-    # Return the edit page with the event data
     return templates.TemplateResponse("edit_event.html", {"request": request, "event": event})
 
 
@@ -853,15 +792,13 @@ async def edit_event(
     time: str = Form(...),
     person_in_charge: str = Form(...),
     address: str = Form(...),
-    image: UploadFile = File(None),  # Optional
+    image: UploadFile = File(None),
     registration_deadline: str = Form(None),
     capacity: int = Form(None)
 ):
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-
-    # Update event fields
     event.title = title
     event.description = description
     event.date = date
@@ -874,25 +811,16 @@ async def edit_event(
         event.registration_deadline = datetime.strptime(registration_deadline, "%Y-%m-%d %H:%M:%S")
     if capacity:
         event.capacity = capacity
-
     db.commit()
     db.refresh(event)
 
     return RedirectResponse(f"/admin/events/{event_id}", status_code=302)
 
 
-from datetime import datetime
-
-
-
 @app.get("/admin/events", response_class=HTMLResponse)
 def get_event_selection_page(request: Request, db: Session = Depends(get_db)):
-    # Verify token from cookies (reuse the function you created earlier)
     admin_id = verify_token_from_cookie(request)
-
-    # Get all events from the database
     events = db.query(Event).all()
-
     return templates.TemplateResponse(
         "event_selection.html", {"request": request, "events": events}
     )
@@ -900,21 +828,13 @@ def get_event_selection_page(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/admin/event_selection", response_class=HTMLResponse)
 def get_event_selection_page(request: Request, db: Session = Depends(get_db)):
-    # Verify token from cookies (reuse the function you created earlier)
     admin_id = verify_token_from_cookie(request)
-
-    # Get all events from the database
     events = db.query(Event).all()
-
-    # Get all users registered for each event
     event_user_data = {}
     for event in events:
-        # Query for users registered for this event
         user_events = db.query(UserEvent).filter(UserEvent.event_id == event.id).all()
         users = [user_event.user for user_event in user_events]
         event_user_data[event] = users
-
-    # Pass the events and their associated registered users to the template
     return templates.TemplateResponse(
         "event_selection.html", {"request": request, "event_user_data": event_user_data}
     )
