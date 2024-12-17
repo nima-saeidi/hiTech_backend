@@ -27,6 +27,17 @@ from fastapi.responses import JSONResponse
 import os
 from convertdate import persian
 from datetime import datetime
+from fastapi import FastAPI, Request, Depends
+from fastapi.responses import HTMLResponse, FileResponse
+from openpyxl import Workbook
+from io import BytesIO
+from sqlalchemy.orm import Session
+
+
+
+
+
+
 
 app = FastAPI()
 
@@ -768,9 +779,64 @@ def get_registered_users_page(event_id: int, request: Request, db: Session = Dep
                 "phone_number": user.phone_number,
                 "education": user.education,
             })
+
+    # Return the template with the user list
     return templates.TemplateResponse(
         "registered_users.html", {"request": request, "users": users, "event_name": event.name}
     )
+
+
+@app.get("/admin/events/{event_id}/users/export", response_class=FileResponse)
+def export_registered_users(event_id: int, db: Session = Depends(get_db)):
+    event = db.query(Event).filter(Event.id == event_id).first()
+    if not event:
+        raise HTTPException(status_code=404, detail="Event not found")
+
+    # Get users registered for the event
+    user_events = db.query(UserEvent).filter(UserEvent.event_id == event_id).all()
+    users = []
+    for user_event in user_events:
+        user = db.query(User).filter(User.id == user_event.user_id).first()
+        if user:
+            users.append({
+                "name": user.name,
+                "last_name": user.last_name,
+                "email": user.email,
+                "job": user.job,
+                "city": user.city,
+                "phone_number": user.phone_number,
+                "education": user.education,
+            })
+
+    # Create an Excel file using openpyxl
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Registered Users"
+
+    # Define headers
+    headers = ["Name", "Last Name", "Email", "Job", "City", "Phone Number", "Education"]
+    ws.append(headers)
+
+    # Add user data to Excel file
+    for user in users:
+        ws.append([
+            user["name"],
+            user["last_name"],
+            user["email"],
+            user["job"],
+            user["city"],
+            user["phone_number"],
+            user["education"],
+        ])
+
+    # Save the workbook to a BytesIO buffer
+    file = BytesIO()
+    wb.save(file)
+    file.seek(0)
+
+    # Return the Excel file as a response
+    return FileResponse(file, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        filename=f"registered_users_{event.name}.xlsx")
 
 @app.get("/admin/events/{event_id}/edit", response_class=HTMLResponse)
 async def edit_event_page(event_id: int, request: Request, db: Session = Depends(get_db)):
