@@ -5,21 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Admin Events</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Persian Date Picker CSS and JS -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/persian-datepicker/dist/css/persian-datepicker.min.css">
     <script src="https://cdn.jsdelivr.net/npm/jquery/dist/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/persian-date/dist/persian-date.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/persian-datepicker/dist/js/persian-datepicker.min.js"></script>
 </head>
 <body class="bg-gray-100 font-sans leading-normal tracking-normal">
-    <!-- Navigation Bar -->
     {% include "nav.html" %}
 
     <div class="max-w-7xl mx-auto py-12 px-6 sm:px-8">
-        <!-- Header Section -->
         <h1 class="text-4xl font-extrabold text-center text-gray-900">Manage Events</h1>
 
-        <!-- Create Event Form -->
         <div class="bg-white p-8 mt-10 rounded-lg shadow-lg">
             <h2 class="text-2xl font-semibold text-gray-800 mb-6">Create a New Event</h2>
             <form action="/admin/events" method="post" enctype="multipart/form-data" class="space-y-6">
@@ -33,7 +29,6 @@
                     <textarea name="description" id="description" rows="4" required class="mt-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full"></textarea>
                 </div>
 
-                <!-- Jalali Calendar -->
                 <div class="flex flex-col">
                     <label for="jalali_date" class="text-sm font-medium text-gray-700">Event Date:</label>
                     <input type="text" id="jalali_date" name="date" required class="mt-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full">
@@ -65,7 +60,6 @@
     <input type="hidden" id="gregorian_deadline" name="registration_deadline">
 </div>
 
-                <!-- Event Capacity -->
                 <div class="flex flex-col">
                     <label for="capacity" class="text-sm font-medium text-gray-700">Event Capacity:</label>
                     <input type="number" id="capacity" name="capacity" min="1" required class="mt-1 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 block w-full">
@@ -76,8 +70,6 @@
         </div>
 
         <hr class="my-12">
-
-        <!-- Event List Section -->
         <h2 class="text-2xl font-semibold text-gray-800 mb-6">Current Events</h2>
         {% if events %}
             <ul class="space-y-4">
@@ -101,8 +93,6 @@
             <p class="text-gray-600">No events available.</p>
         {% endif %}
     </div>
-
-    <!-- Jalali Calendar Initialization Script -->
     <script>
         $(document).ready(function () {
             $('#jalali_date').persianDatepicker({
@@ -114,15 +104,15 @@
         $('#jalali_deadline').persianDatepicker({
             format: 'YYYY/MM/DD HH:mm',
             timePicker: {
-                enabled: true,  // Enable time selection
+                enabled: true,
                 meridiem: {
-                    enabled: false // Use 24-hour format
+                    enabled: false
                 }
             },
             initialValue: false,
             onSelect: function (unixDate) {
                 const gregorianDeadline = new persianDate(unixDate).toLocale('en').toCalendar('gregorian').format('YYYY-MM-DD HH:mm');
-                $('#gregorian_deadline').val(gregorianDeadline); // Save converted Gregorian datetime to hidden input
+                $('#gregorian_deadline').val(gregorianDeadline);
             }
         });
     });

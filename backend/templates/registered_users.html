@@ -12,12 +12,9 @@
     <div class="container mx-auto p-6">
         <h2 class="text-3xl font-semibold text-center text-gray-800 mb-6">Registered Users for {{ event_name }}</h2>
 
-        <!-- Display the number of registered users -->
         <div class="text-center mb-6">
             <p class="text-xl text-gray-700">Total Registered Users: <span class="font-semibold">{{ users|length }}</span></p>
         </div>
-
-        <!-- User List -->
         <div class="bg-white p-4 rounded-lg shadow-lg">
             {% if users %}
                 <ul class="space-y-4">
@@ -33,13 +30,9 @@
                 <p class="text-center text-gray-500">No users registered for this event.</p>
             {% endif %}
         </div>
-
-        <!-- Back to Event -->
         <div class="mt-6 text-center">
             <a href="/admin/events/{{ event_id }}" class="text-indigo-600 hover:text-indigo-800 font-semibold">Back to Event</a>
         </div>
-
-        <!-- Download Users as Excel Button -->
         <div class="mt-6 text-center">
             <a href="/admin/events/{{ event_id }}/users/export"
                class="text-indigo-600 hover:text-indigo-800 font-semibold">Download Users as Excel</a>

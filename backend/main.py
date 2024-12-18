@@ -277,17 +277,10 @@ def verify_password(plain_password, hashed_password):
 
 
 def save_event_image(image: UploadFile) -> str:
-    # Ensure the directory exists
     os.makedirs(EVENT_IMAGES_PATH, exist_ok=True)
-
-    # Define the file path
     image_path = EVENT_IMAGES_PATH / image.filename
-
-    # Save the image to the specified path
     with open(image_path, "wb") as buffer:
         buffer.write(image.file.read())
-
-    # Return the file path as a string
     return str(image_path)
 
 
@@ -354,24 +347,17 @@ async def register_for_event(
         user_profile: UserProfile,
         db: Session = Depends(get_db)
 ):
-    # Fetch the event
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-
-    # Validate registration deadline
     if event.registration_deadline and datetime.now() > event.registration_deadline:
         raise HTTPException(status_code=400, detail="Registration for this event has closed")
-
-    # Validate event capacity
     current_registration_count = db.query(UserEvent).filter(UserEvent.event_id == event_id).count()
     if event.capacity and current_registration_count >= event.capacity:
         raise HTTPException(status_code=400, detail="This event has reached its maximum capacity")
 
-    # Check if user exists
     existing_user = db.query(User).filter(User.email == user_profile.email).first()
     if not existing_user:
-        # Create a new user if not found
         new_user = User(
             name=user_profile.name,
             last_name=user_profile.last_name,
@@ -387,8 +373,6 @@ async def register_for_event(
         user_id = new_user.id
     else:
         user_id = existing_user.id
-
-    # Check if the user is already registered for the event
     existing_registration = db.query(UserEvent).filter(
         UserEvent.user_id == user_id,
         UserEvent.event_id == event_id
@@ -396,13 +380,9 @@ async def register_for_event(
 
     if existing_registration:
         raise HTTPException(status_code=400, detail="User is already registered for this event")
-
-    # Register the user for the event
     user_event = UserEvent(user_id=user_id, event_id=event_id)
     db.add(user_event)
     db.commit()
-
-    # Generate QR code for the user-event registration
     qr_code_path = generate_qr_code(user_id, event_id)
 
     return EventRegistrationResponse(
@@ -533,8 +513,8 @@ def view_profile(current_user: User = Depends(get_current_user)):
         phone_number=current_user.phone_number,
         home_address=current_user.home_address,
         education=current_user.education,
+        email=current_user.email,  # Include the email field
     )
-
 
 
 
@@ -558,6 +538,8 @@ def edit_profile(updated_data: UserProfile, current_user: User = Depends(get_cur
         phone_number=current_user.phone_number,
         home_address=current_user.home_address,
         education=current_user.education,
+        email=current_user.email
+
     )
 
 
@@ -780,7 +762,6 @@ def get_registered_users_page(event_id: int, request: Request, db: Session = Dep
                 "education": user.education,
             })
 
-    # Return the template with the user list
     return templates.TemplateResponse(
         "registered_users.html", {"request": request, "users": users, "event_name": event.title,"event_id":event.id}
     )
@@ -792,8 +773,6 @@ def export_registered_users(event_id: int, db: Session = Depends(get_db)):
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-
-    # Get users registered for the event
     user_events = db.query(UserEvent).filter(UserEvent.event_id == event_id).all()
     users = []
     for user_event in user_events:
@@ -808,17 +787,11 @@ def export_registered_users(event_id: int, db: Session = Depends(get_db)):
                 "phone_number": user.phone_number,
                 "education": user.education,
             })
-
-    # Create an Excel file using openpyxl
     wb = Workbook()
     ws = wb.active
     ws.title = "Registered Users"
-
-    # Define headers
     headers = ["Name", "Last Name", "Email", "Job", "City", "Phone Number", "Education"]
     ws.append(headers)
-
-    # Add user data to Excel file
     for user in users:
         ws.append([
             user["name"],
@@ -829,13 +802,9 @@ def export_registered_users(event_id: int, db: Session = Depends(get_db)):
             user["phone_number"],
             user["education"],
         ])
-
-    # Save the workbook to a BytesIO buffer
     file = BytesIO()
     wb.save(file)
     file.seek(0)
-
-    # Return the Excel file as a response
     return StreamingResponse(file, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                              headers={"Content-Disposition": f"attachment; filename=registered_users_{event.title}.xlsx"})
 
@@ -852,31 +821,21 @@ from persiantools.jdatetime import JalaliDate
 from fastapi import HTTPException
 
 
-# Helper function to convert Persian numbers to ASCII digits
 def persian_to_ascii(persian_str: str) -> str:
-    persian_digits = '۰۱۲۳۴۵۶۷۸۹'  # Persian digits
-    ascii_digits = '0123456789'  # ASCII digits
+    persian_digits = '۰۱۲۳۴۵۶۷۸۹'
+    ascii_digits = '0123456789'
     translation_table = str.maketrans(persian_digits, ascii_digits)
     return persian_str.translate(translation_table)
 
 
-# Function to convert Jalali date to Gregorian
 def jalali_to_gregorian(jalali_date: str):
-    """
-    Converts a Jalali date (e.g., ۱۴۰۳/۰۹/۲۶) to Gregorian date in 'YYYY-MM-DD' format.
-    """
-    try:
-        # Convert Persian numbers to ASCII digits
-        jalali_date_ascii = persian_to_ascii(jalali_date)
 
-        # Ensure the Jalali date is in the format YYYY/MM/DD
+    try:
+        jalali_date_ascii = persian_to_ascii(jalali_date)
         jalali_parts = jalali_date_ascii.split('/')
         if len(jalali_parts) != 3:
             raise ValueError("Incorrect date format")
-
         jalali_year, jalali_month, jalali_day = map(int, jalali_parts)
-
-        # Convert Jalali to Gregorian
         gregorian_date = JalaliDate(jalali_year, jalali_month, jalali_day).to_gregorian()
         return gregorian_date.strftime("%Y-%m-%d")  # Return Gregorian date in 'YYYY-MM-DD'
     except Exception as e:
@@ -889,30 +848,24 @@ async def edit_event(
         db: Session = Depends(get_db),
         title: str = Form(...),
         description: str = Form(...),
-        date: str = Form(...),  # Jalali date as input
+        date: str = Form(...),
         time: str = Form(...),
         capacity: int = Form(None)
 ):
-    # Query the event by ID
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    # Convert Jalali date to Gregorian format
     try:
         gregorian_date = jalali_to_gregorian(date)
     except HTTPException as e:
-        raise e  # Handle invalid Jalali date format
-
-    # Update event details
+        raise e
     event.title = title
     event.description = description
-    event.date = gregorian_date  # Save Gregorian date to database
+    event.date = gregorian_date
     event.time = time
     if capacity:
         event.capacity = capacity
-
-    # Commit changes
     db.commit()
     db.refresh(event)
 
@@ -944,7 +897,6 @@ def get_event_selection_page(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/admin/admin_event_selection", response_class=HTMLResponse)
 def event_selection_page(request: Request, db: Session = Depends(get_db)):
-    # Fetch all events from the database
     events = db.query(Event).all()
     return templates.TemplateResponse("admin_event_selection.html", {"request": request, "events": events})
 
