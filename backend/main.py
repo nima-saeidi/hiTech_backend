@@ -101,6 +101,7 @@ class UserProfile(BaseModel):
     city: str
     phone_number: str
     education: str
+    home_address:str
 
 
 class EventResponse(BaseModel):
