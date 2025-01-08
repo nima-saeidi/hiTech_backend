@@ -253,16 +253,20 @@ def admin_required(func):
     return wrapper
 
 
+def generate_qr_code(user_id: int, event_id: int, attendees_count: int) -> str:
+    # Include attendees_count in the QR code data
+    data = f"user:{user_id}-event:{event_id}-attendees:{attendees_count}"
 
-
-def generate_qr_code(user_id: int, event_id: int) -> str:
-    data = f"user:{user_id}-event:{event_id}"
+    # Generate the QR code
     qr = qrcode.make(data)
+
+    # Save the QR code to a file
     qr_code_filename = f"{user_id}_{event_id}.png"
     qr_code_path = QR_CODE_PATH / qr_code_filename
     qr.save(qr_code_path)
-    return str(qr_code_path)
 
+    # Return the QR code path as a string
+    return str(qr_code_path)
 
 
 def get_user_by_email(db: Session, email: str):
@@ -385,7 +389,7 @@ async def register_for_event(
     user_event = UserEvent(user_id=user_id, event_id=event_id)
     db.add(user_event)
     db.commit()
-    qr_code_path = generate_qr_code(user_id, event_id)
+    qr_code_path = generate_qr_code(user_id, event_id,0)
 
     return EventRegistrationResponse(
         user_id=user_id,
@@ -394,38 +398,53 @@ async def register_for_event(
         qr_code_path=qr_code_path
     )
 
+
 @app.post("/registered_user_event_register/{event_id}", response_model=EventRegistrationResponse)
 async def registered_user_event_register(
         event_id: int,
         user_email: str,
+        attendees_count: int,  # Added parameter for attendees count
         db: Session = Depends(get_db)
 ):
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
+
     if event.registration_deadline and datetime.now() > event.registration_deadline:
         raise HTTPException(status_code=400, detail="Registration for this event has closed")
+
     current_registration_count = db.query(UserEvent).filter(UserEvent.event_id == event_id).count()
     if event.capacity and current_registration_count >= event.capacity:
         raise HTTPException(status_code=400, detail="This event has reached its maximum capacity")
+
     user = db.query(User).filter(User.email == user_email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
     if not user.password:
         raise HTTPException(
             status_code=403,
             detail="User is not fully registered on the site. Please complete registration."
         )
+
     existing_registration = db.query(UserEvent).filter(
         UserEvent.user_id == user.id,
         UserEvent.event_id == event_id
     ).first()
     if existing_registration:
         raise HTTPException(status_code=400, detail="User is already registered for this event")
-    user_event = UserEvent(user_id=user.id, event_id=event_id)
+
+    # Restrict attendees count to a maximum of 5
+    if attendees_count > 5:
+        raise HTTPException(status_code=400, detail="You can bring a maximum of 5 attendees.")
+
+    # Register the user for the event
+    user_event = UserEvent(user_id=user.id, event_id=event_id, attendees_count=attendees_count)
     db.add(user_event)
     db.commit()
-    qr_code_path = generate_qr_code(user.id, event_id)
+
+    # Generate QR code with attendees count
+    qr_code_path = generate_qr_code(user.id, event_id, attendees_count)
     return EventRegistrationResponse(
         user_id=user.id,
         event_id=event_id,
@@ -553,9 +572,12 @@ def register_attendance(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
+    # Check if the event exists
     event = db.query(Event).filter(Event.id == data.event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found.")
+
+    # Check if the user is already registered for this event
     existing_entry = db.query(UserEvent).filter(
         UserEvent.user_id == current_user.id,
         UserEvent.event_id == data.event_id
@@ -565,16 +587,46 @@ def register_attendance(
             status_code=400, detail="You are already registered for this event."
         )
 
+    # Validate the number of attendees
+    attendees_count = data.attendees_count
+    if attendees_count < 0:
+        raise HTTPException(
+            status_code=400, detail="Attendees count cannot be negative."
+        )
+    if attendees_count > 5:
+        raise HTTPException(
+            status_code=400, detail="You can bring a maximum of 5 attendees."
+        )
+
+    # Check event capacity if applicable
+    if event.capacity is not None:
+        # Calculate total attendees including the user
+        total_attendees = attendees_count + 1
+        registered_count = db.query(UserEvent).filter(
+            UserEvent.event_id == data.event_id
+        ).count()
+
+        if registered_count + total_attendees > event.capacity:
+            raise HTTPException(
+                status_code=400, detail="Event capacity exceeded."
+            )
+
+    # Register the user for the event
     new_entry = UserEvent(
         user_id=current_user.id,
         event_id=data.event_id,
-        attendees_count=data.attendees_count,
+        attendees_count=attendees_count,
     )
     db.add(new_entry)
     db.commit()
     db.refresh(new_entry)
 
     return {"message": "Attendance registered successfully."}
+
+
+
+
+
 # -------------------------------------------------------------------------------------------------------------
 
 

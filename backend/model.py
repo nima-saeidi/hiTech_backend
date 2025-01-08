@@ -4,8 +4,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from sqlalchemy import ForeignKey
 from sqlalchemy.orm import relationship
-# DATABASE_URL = "postgresql://postgres:n1m010@localhost:5432/hiTech"
-DATABASE_URL = "postgresql://alborz:n1m010@localhost:5432/hi_tech"
+DATABASE_URL = "postgresql://postgres:n1m010@localhost:5432/hiTech"
+# DATABASE_URL = "postgresql://alborz:n1m010@localhost:5432/hi_tech"
 
 Base = declarative_base()
 
@@ -45,7 +45,6 @@ class Event(Base):
 
 class UserEvent(Base):
     __tablename__ = "user_events"
-
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     event_id = Column(Integer, ForeignKey("events.id"), nullable=False)
