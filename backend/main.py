@@ -175,6 +175,7 @@ class EventRegistrationResponse(BaseModel):
     user_id: int
     event_id: int
     message: str
+    qr_code_path:str
     class Config:
         orm_mode = True
 
@@ -390,12 +391,12 @@ async def register_for_event(
     db.add(user_event)
     db.commit()
     qr_code_path = generate_qr_code(user_id, event_id,0)
-
+    print(qr_code_path)
     return EventRegistrationResponse(
         user_id=user_id,
         event_id=event_id,
+        qr_code_path=qr_code_path,
         message="User successfully registered for the event",
-        qr_code_path=qr_code_path
     )
 
 
