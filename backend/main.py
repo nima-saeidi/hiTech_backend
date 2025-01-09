@@ -622,7 +622,17 @@ def register_attendance(
     db.commit()
     db.refresh(new_entry)
 
-    return {"message": "Attendance registered successfully."}
+    # Generate the QR code
+    qr_code_path = generate_qr_code(
+        user_id=current_user.id,
+        event_id=data.event_id,
+        attendees_count=attendees_count
+    )
+
+    return {
+        "message": "Attendance registered successfully.",
+        "qr_code_path": qr_code_path
+    }
 
 
 
