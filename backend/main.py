@@ -590,11 +590,11 @@ def register_attendance(
 
     # Validate the number of attendees
     attendees_count = data.attendees_count
-    if attendees_count < 0:
+    if attendees_count <= 0:
         raise HTTPException(
             status_code=400, detail="Attendees count cannot be negative."
         )
-    if attendees_count > 5:
+    if attendees_count >= 5:
         raise HTTPException(
             status_code=400, detail="You can bring a maximum of 5 attendees."
         )
