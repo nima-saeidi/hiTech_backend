@@ -32,6 +32,7 @@ from fastapi.responses import HTMLResponse, FileResponse
 from openpyxl import Workbook
 from io import BytesIO
 from sqlalchemy.orm import Session
+from fastapi.responses import RedirectResponse
 
 
 
@@ -40,6 +41,14 @@ from sqlalchemy.orm import Session
 
 
 app = FastAPI()
+
+@app.middleware("http")
+async def force_https(request: Request, call_next):
+    if request.url.scheme == "http":
+        url = request.url.replace(scheme="https")
+        return RedirectResponse(url, status_code=status.HTTP_301_MOVED_PERMANENTLY)
+    return await call_next(request)
+
 
 
 app.add_middleware(
