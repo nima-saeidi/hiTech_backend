@@ -72,12 +72,16 @@ def get_db():
 class EventAttendanceInput(BaseModel):
     event_id: int
     attendees_count: int
-
+    class Config:
+        orm_mode = True
+        from_attributes = True
 
 class Token(BaseModel):
     access_token: str
     token_type: str
-
+    class Config:
+        orm_mode = True
+        from_attributes = True
 
 
 class UserCreate(BaseModel):
@@ -89,11 +93,15 @@ class UserCreate(BaseModel):
     phone_number: str
     education: str
     password: str
-
+    class Config:
+        orm_mode = True
+        from_attributes = True
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
-
+    class Config:
+        orm_mode = True
+        from_attributes = True
 class UserProfile(BaseModel):
     name: str
     last_name: str
@@ -103,7 +111,9 @@ class UserProfile(BaseModel):
     phone_number: str
     education: str
     home_address:str
-
+    class Config:
+        orm_mode = True
+        from_attributes = True
 
 class EventResponse(BaseModel):
     id: int
@@ -794,6 +804,10 @@ async def delete_event(event_id: int, request: Request, db: Session = Depends(ge
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
+    # Delete related rows in user_events
+    db.query(UserEvent).filter(UserEvent.event_id == event_id).delete()
+
+    # Delete the event
     db.delete(event)
     db.commit()
 
@@ -806,14 +820,22 @@ def list_events(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse("events.html", {"request": request, "events": events})
 
 
+
+
 @app.get("/admin/events/{event_id}/users", response_class=HTMLResponse)
 def get_registered_users_page(event_id: int, request: Request, db: Session = Depends(get_db)):
     admin_id = verify_token_from_cookie(request)
+
+    # Fetch the event details
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         return templates.TemplateResponse("events.html", {"request": request, "error": "Event not found"})
 
+    # Fetch all user-event mappings for the event
     user_events = db.query(UserEvent).filter(UserEvent.event_id == event_id).all()
+
+    # Calculate total registrations and build the user data
+    total_registered_users = len(user_events)
     users = []
     for user_event in user_events:
         user = db.query(User).filter(User.id == user_event.user_id).first()
@@ -826,20 +848,37 @@ def get_registered_users_page(event_id: int, request: Request, db: Session = Dep
                 "city": user.city,
                 "phone_number": user.phone_number,
                 "education": user.education,
+                "attendees_count": user_event.attendees_count or 0,  # Default to 0 if None
             })
 
+    # Render the template with the required data
     return templates.TemplateResponse(
-        "registered_users.html", {"request": request, "users": users, "event_name": event.title,"event_id":event.id}
+        "registered_users.html",
+        {
+            "request": request,
+            "users": users,
+            "event_name": event.title,
+            "event_id": event.id,
+            "total_registered_users": total_registered_users,
+        }
     )
+
+
 
 from fastapi.responses import StreamingResponse
 
+
 @app.get("/admin/events/{event_id}/users/export", response_class=StreamingResponse)
 def export_registered_users(event_id: int, db: Session = Depends(get_db)):
+    # Fetch event details
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
+
+    # Fetch user-event mappings for the event
     user_events = db.query(UserEvent).filter(UserEvent.event_id == event_id).all()
+
+    # Prepare user data with attendance count
     users = []
     for user_event in user_events:
         user = db.query(User).filter(User.id == user_event.user_id).first()
@@ -852,12 +891,22 @@ def export_registered_users(event_id: int, db: Session = Depends(get_db)):
                 "city": user.city,
                 "phone_number": user.phone_number,
                 "education": user.education,
+                "attendees_count": user_event.attendees_count or 0,  # Default to 0 if None
             })
+
+    # Create an Excel workbook
     wb = Workbook()
     ws = wb.active
     ws.title = "Registered Users"
-    headers = ["Name", "Last Name", "Email", "Job", "City", "Phone Number", "Education"]
+
+    # Define headers including attendance count
+    headers = [
+        "Name", "Last Name", "Email", "Job",
+        "City", "Phone Number", "Education", "Attendance Count"
+    ]
     ws.append(headers)
+
+    # Add user data to the spreadsheet
     for user in users:
         ws.append([
             user["name"],
@@ -867,13 +916,20 @@ def export_registered_users(event_id: int, db: Session = Depends(get_db)):
             user["city"],
             user["phone_number"],
             user["education"],
+            user["attendees_count"],
         ])
+
+    # Save the workbook to a BytesIO stream
     file = BytesIO()
     wb.save(file)
     file.seek(0)
-    return StreamingResponse(file, media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                             headers={"Content-Disposition": f"attachment; filename=registered_users_{event.title}.xlsx"})
 
+    # Return the file as a streaming response
+    return StreamingResponse(
+        file,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        headers={"Content-Disposition": f"attachment; filename=registered_users_{event.title}.xlsx"}
+    )
 
 @app.get("/admin/events/{event_id}/edit", response_class=HTMLResponse)
 async def edit_event_page(event_id: int, request: Request, db: Session = Depends(get_db)):
