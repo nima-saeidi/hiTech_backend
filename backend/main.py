@@ -868,6 +868,8 @@ def get_registered_users_page(event_id: int, request: Request, db: Session = Dep
 from fastapi.responses import StreamingResponse
 
 
+from urllib.parse import quote
+
 @app.get("/admin/events/{event_id}/users/export", response_class=StreamingResponse)
 def export_registered_users(event_id: int, db: Session = Depends(get_db)):
     # Fetch event details
@@ -924,13 +926,15 @@ def export_registered_users(event_id: int, db: Session = Depends(get_db)):
     wb.save(file)
     file.seek(0)
 
+    # Encode the filename to be safe for HTTP headers
+    filename = quote(f"registered_users_{event.title}.xlsx")
+
     # Return the file as a streaming response
     return StreamingResponse(
         file,
         media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        headers={"Content-Disposition": f"attachment; filename=registered_users_{event.title}.xlsx"}
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
     )
-
 @app.get("/admin/events/{event_id}/edit", response_class=HTMLResponse)
 async def edit_event_page(event_id: int, request: Request, db: Session = Depends(get_db)):
     event = db.query(Event).filter(Event.id == event_id).first()
