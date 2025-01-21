@@ -288,10 +288,6 @@ def get_user_by_email(db: Session, email: str):
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
-# Routes
-
-
-
 
 
 def save_event_image(image: UploadFile) -> str:
@@ -325,8 +321,6 @@ def scan_qr(qr_code_data: str, db: Session = Depends(get_db)):
 
 
 
-
-
 @app.post("/register/{event_id}")
 def register_for_event(event_id: int, user_id: int, db: Session = Depends(get_db)):
     event = db.query(Event).filter(Event.id == event_id).first()
@@ -343,10 +337,6 @@ def register_for_event(event_id: int, user_id: int, db: Session = Depends(get_db
     db.commit()
     db.refresh(new_user_event)
     return {"message": "User successfully registered for the event"}
-
-
-
-
 
 
 @app.get("/events", response_model=List[EventResponse])
@@ -422,8 +412,8 @@ async def registered_user_event_register(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    if event.registration_deadline and datetime.now() > event.registration_deadline:
-        raise HTTPException(status_code=400, detail="Registration for this event has closed")
+    # if event.registration_deadline and datetime.now() > event.registration_deadline:
+    #     raise HTTPException(status_code=400, detail="Registration for this event has closed")
 
     current_registration_count = db.query(UserEvent).filter(UserEvent.event_id == event_id).count()
     if event.capacity and current_registration_count >= event.capacity:
