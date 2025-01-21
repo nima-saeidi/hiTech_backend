@@ -358,8 +358,8 @@ async def register_for_event(
     event = db.query(Event).filter(Event.id == event_id).first()
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
-    if event.registration_deadline and datetime.now() > event.registration_deadline:
-        raise HTTPException(status_code=400, detail="Registration for this event has closed")
+    # if event.registration_deadline and datetime.now() > event.registration_deadline:
+    #     raise HTTPException(status_code=400, detail="Registration for this event has closed")
     current_registration_count = db.query(UserEvent).filter(UserEvent.event_id == event_id).count()
     if event.capacity and current_registration_count >= event.capacity:
         raise HTTPException(status_code=400, detail="This event has reached its maximum capacity")
@@ -412,8 +412,8 @@ async def registered_user_event_register(
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    # if event.registration_deadline and datetime.now() > event.registration_deadline:
-    #     raise HTTPException(status_code=400, detail="Registration for this event has closed")
+    if event.registration_deadline and datetime.now() > event.registration_deadline:
+        raise HTTPException(status_code=400, detail="Registration for this event has closed")
 
     current_registration_count = db.query(UserEvent).filter(UserEvent.event_id == event_id).count()
     if event.capacity and current_registration_count >= event.capacity:
